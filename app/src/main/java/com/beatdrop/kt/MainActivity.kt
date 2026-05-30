@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
