@@ -1,6 +1,7 @@
 package com.beatdrop.kt.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -48,8 +49,8 @@ fun RadioScreen(vm: PlayerViewModel) {
         )
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Radio", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp, modifier = Modifier.padding(16.dp, 10.dp))
+    Column(Modifier.fillMaxSize()) {
+        Text("Radio", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp, modifier = Modifier.statusBarsPadding().padding(16.dp, 10.dp))
         if (tracks.isEmpty()) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Add music to start a station.", color = C.textSecondary) }
             return@Column
@@ -60,6 +61,7 @@ fun RadioScreen(vm: PlayerViewModel) {
                     Modifier.padding(6.dp).fillMaxWidth().aspectRatio(1.1f)
                         .clip(RoundedCornerShape(Radius.lg))
                         .background(Brush.linearGradient(listOf(st.c1, st.c2)))
+                        .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(Radius.lg))
                         .pressableScale(onClick = {
                             val mix = st.pick(tracks).take(100)
                             if (mix.isNotEmpty()) vm.playList(mix, mix.first().id)

@@ -1,6 +1,7 @@
 package com.beatdrop.kt.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
 
 @Composable
 fun OnboardingScreen(onGetStarted: () -> Unit) {
@@ -33,9 +35,9 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        if (C.isDark) Color(0xFF2A1A3E) else C.bg0,  // Use theme background, lighter purple in dark
-                        if (C.isDark) Color(0xFF1E1528) else C.bg0,
-                        if (C.isDark) Color(0xFF16121F) else C.bg0,
+                        if (C.isDark) Color(0xFF1B1026) else Color(0xFFFFEEF5),
+                        if (C.isDark) Color(0xFF101018) else Color(0xFFE8F2FF),
+                        if (C.isDark) Color(0xFF0A0910) else Color(0xFFFAFAFD),
                     )
                 )
             )
@@ -67,7 +69,8 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                                 Color(0xFF3D1259),
                             )
                         )
-                    ),
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -85,14 +88,14 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                 "BeatDrop",
                 fontSize = 38.sp,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = if (C.isDark) Color.White else Color(0xFF101018),
                 textAlign = TextAlign.Center,
                 letterSpacing = (-1).sp,
             )
 
             Text(
                 "Your music, beautifully played.",
-                color = Color(0xFFD4B0FF),
+                color = if (C.isDark) Color(0xFFD4B0FF) else C.accentDark,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
@@ -102,13 +105,13 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             Spacer(Modifier.height(32.dp))
 
             // Feature list with cards
-            FeatureCard(Icons.Filled.MusicNote, "Your Local Library", "Instantly plays every song already on your phone.", Color(0xFFC77DFF))
+            FeatureCard(Icons.Filled.MusicNote, "Your Local Library", "Instantly plays every song already on your phone.", Color(0xFFC77DFF), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Filled.Lyrics, "Synced Lyrics", "Drop a .lrc file next to a track and sing along in real-time.", Color(0xFF0A84FF))
+            FeatureCard(Icons.Filled.Lyrics, "Synced Lyrics", "Drop a .lrc file next to a track and sing along in real-time.", Color(0xFF0A84FF), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Filled.QueueMusic, "Playlists & Queue", "Create playlists, reorder your queue, and manage your music.", Color(0xFF30D158))
+            FeatureCard(Icons.Filled.QueueMusic, "Playlists & Queue", "Create playlists, reorder your queue, and manage your music.", Color(0xFF30D158), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Filled.GraphicEq, "DJ Mode", "Two decks with a working crossfader — mix tracks live.", Color(0xFFFF9F0A))
+            FeatureCard(Icons.Filled.GraphicEq, "DJ Mode", "Two decks with a working crossfader — mix tracks live.", Color(0xFFFF9F0A), C.isDark)
 
             Spacer(Modifier.weight(1f))
 
@@ -128,6 +131,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                             listOf(Color(0xFFC77DFF), Color(0xFF9D4EDD))
                         )
                     )
+                    .border(0.8.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
                     .pressableScale(onClick = onGetStarted, haptic = false)
                     .padding(vertical = 18.dp),
                 contentAlignment = Alignment.Center,
@@ -145,7 +149,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
 
             Text(
                 "BeatDrop reads audio on your device.\nNo account, no uploads, no tracking.",
-                color = Color(0xFF8A8A9A),
+                color = if (C.isDark) Color(0xFF8A8A9A) else Color(0x7F101018),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -157,12 +161,19 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
 }
 
 @Composable
-private fun FeatureCard(icon: ImageVector, title: String, body: String, accent: Color) {
+private fun FeatureCard(icon: ImageVector, title: String, body: String, accent: Color, isDark: Boolean) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF120B20))
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.55f)
+            )
+            .border(
+                0.8.dp,
+                if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                RoundedCornerShape(14.dp)
+            )
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -170,16 +181,26 @@ private fun FeatureCard(icon: ImageVector, title: String, body: String, accent: 
             Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(accent.copy(alpha = 0.2f)),
+                .background(accent.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, null, tint = accent, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(
+                title,
+                color = if (isDark) Color.White else Color(0xFF101018),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp
+            )
             Spacer(Modifier.height(3.dp))
-            Text(body, color = Color(0xFFA9A9BC), fontSize = 13.sp, lineHeight = 18.sp)
+            Text(
+                body,
+                color = if (isDark) Color(0xFFA9A9BC) else Color(0xBF101018),
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
         }
     }
 }
