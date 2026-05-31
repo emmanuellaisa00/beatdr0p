@@ -46,6 +46,20 @@ private data class YtClient(
 
 private val YT_CLIENTS = listOf(
     YtClient(
+        name = "IOS", clientName = "IOS", clientVersion = "20.03.02",
+        headers = mapOf(
+            "User-Agent" to "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)",
+            "X-Youtube-Client-Name" to "5",
+            "X-Youtube-Client-Version" to "20.03.02",
+        ),
+        extraContext = JSONObject().apply {
+            put("deviceMake", "Apple")
+            put("deviceModel", "iPhone16,2")
+            put("osName", "iPhone")
+            put("osVersion", "18.2.1.22C161")
+        }
+    ),
+    YtClient(
         name = "MWEB", clientName = "MWEB", clientVersion = "2.20241202.07.00",
         headers = mapOf(
             "User-Agent" to "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
