@@ -1,6 +1,7 @@
 package com.beatdrop.kt.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,7 +91,7 @@ private fun Deck(label: String, track: Track?, playing: Boolean, accent: Color, 
     Column(
         modifier.clip(RoundedCornerShape(Radius.lg))
             .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.5f))
-            .androidx.compose.foundation.border(0.8.dp, C.liquidGlassBorder, RoundedCornerShape(Radius.lg))
+            .border(0.8.dp, C.liquidGlassBorder, RoundedCornerShape(Radius.lg))
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

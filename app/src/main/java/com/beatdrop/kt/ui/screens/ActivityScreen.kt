@@ -2,6 +2,7 @@ package com.beatdrop.kt.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -195,7 +196,7 @@ private fun Card(C: com.beatdrop.kt.ui.theme.AppColors, content: @Composable Col
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg))
             .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.5f))
-            .androidx.compose.foundation.border(0.8.dp, C.liquidGlassBorder, RoundedCornerShape(Radius.lg))
+            .border(0.8.dp, C.liquidGlassBorder, RoundedCornerShape(Radius.lg))
             .padding(16.dp),
         content = content,
     )
