@@ -29,6 +29,12 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.components.AppleLyrics
+import com.beatdrop.kt.ui.components.rememberArtworkColor
+import com.beatdrop.kt.ui.components.glassBlur
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.draw.alpha
 
 @Composable
 fun NowPlayingScreen(vm: PlayerViewModel, onCollapse: () -> Unit, onOpenQueue: () -> Unit = {}) {
@@ -39,6 +45,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onCollapse: () -> Unit, onOpenQueue: (
     val pos by vm.position.collectAsState()
     val dur by vm.duration.collectAsState()
     val lyrics by vm.lyrics.collectAsState()
+    val lyricsLoading by vm.lyricsLoading.collectAsState()
     val activeLyric by vm.activeLyric.collectAsState()
     var showLyrics by remember { mutableStateOf(false) }
     val shuffle by vm.shuffle.collectAsState()
@@ -58,15 +65,40 @@ fun NowPlayingScreen(vm: PlayerViewModel, onCollapse: () -> Unit, onOpenQueue: (
     )
     val artScale by animateFloatAsState(if (isPlaying) 1f else 0.9f, spring(stiffness = Spring.StiffnessLow), label = "art")
 
+    // Dynamic color extracted from the album art (Apple Music / Spotify style).
+    val artColor = rememberArtworkColor(t.artworkUri)
+
+    // Swipe-down-to-dismiss
+    var dragAccum by remember { mutableStateOf(0f) }
+
     Box(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1A1320), Color(0xFF0B0B0F)))).statusBarsPadding()
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(artColor.copy(alpha = 0.55f), Color(0xFF0B0B0F))))
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = { if (dragAccum > 180f) onCollapse(); dragAccum = 0f },
+                ) { _, dy -> if (dy > 0) dragAccum += dy }
+            }
     ) {
+        // Blurred album-art backdrop for liquid-glass depth (API 31+).
+        AsyncImage(
+            model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().glassBlur(60f).alpha(0.35f),
+        )
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+      Box(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onCollapse) { Icon(Icons.Filled.KeyboardArrowDown, "Collapse", tint = C.text) }
                 Spacer(Modifier.weight(1f))
                 Text("NOW PLAYING", color = C.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { com.beatdrop.kt.playback.AudioOutput.openSwitcher(ctx) }) {
+                    Icon(Icons.Filled.Speaker, "Audio output", tint = C.text)
+                }
                 IconButton(onClick = onOpenQueue) { Icon(Icons.Filled.QueueMusic, "Queue", tint = C.text) }
             }
             Spacer(Modifier.height(12.dp))
@@ -80,7 +112,17 @@ fun NowPlayingScreen(vm: PlayerViewModel, onCollapse: () -> Unit, onOpenQueue: (
                     }
                 }
             } else {
-                LyricsView(lyrics.map { it.text }, activeLyric, Modifier.weight(1f))
+                if (lyricsLoading && lyrics.isEmpty()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
+                        CircularProgressIndicator(color = C.accent)
+                    }
+                } else if (lyrics.isEmpty()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
+                        Text("No lyrics found.\nAdd a .lrc next to the audio.", color = C.textSecondary, textAlign = TextAlign.Center)
+                    }
+                } else {
+                    AppleLyrics(lyrics, activeLyric, Modifier.weight(1f)) { vm.seekTo(it) }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -122,36 +164,15 @@ fun NowPlayingScreen(vm: PlayerViewModel, onCollapse: () -> Unit, onOpenQueue: (
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { showLyrics = !showLyrics }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text(
-                    if (showLyrics) "Show artwork" else if (lyrics.isEmpty()) "No synced lyrics (.lrc)" else "Show lyrics",
+                    if (showLyrics) "Show artwork"
+                    else if (lyricsLoading) "Finding lyrics…"
+                    else if (lyrics.isEmpty()) "No lyrics found"
+                    else "Show lyrics",
                     color = if (lyrics.isEmpty() && !showLyrics) C.textTertiary else C.accent,
                 )
             }
         }
+        }
     }
 }
 
-@Composable
-private fun LyricsView(lines: List<String>, active: Int, modifier: Modifier) {
-    val C = LocalAppColors.current
-    if (lines.isEmpty()) {
-        Box(modifier.fillMaxWidth(), Alignment.Center) {
-            Text("No synced lyrics.\nAdd a matching .lrc next to the audio.", color = C.textSecondary, textAlign = TextAlign.Center)
-        }
-        return
-    }
-    val state = rememberLazyListState()
-    LaunchedEffect(active) { if (active >= 0) state.animateScrollToItem(active) }
-    LazyColumn(state = state, modifier = modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        itemsIndexed(lines) { i, line ->
-            Text(
-                line.ifBlank { "♪" },
-                color = if (i == active) Color.White else C.textTertiary,
-                fontSize = if (i == active) 20.sp else 16.sp,
-                fontWeight = if (i == active) FontWeight.Bold else FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 12.dp),
-            )
-        }
-    }
-}

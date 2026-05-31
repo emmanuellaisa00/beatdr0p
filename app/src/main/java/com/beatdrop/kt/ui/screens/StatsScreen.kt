@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +22,7 @@ import com.beatdrop.kt.ui.theme.Radius
 
 /** Listening stats derived from local play counts (persisted via DataStore). */
 @Composable
-fun StatsScreen(vm: PlayerViewModel) {
+fun StatsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}) {
     val C = LocalAppColors.current
     val counts by vm.playCounts.collectAsState()
     val tracks by vm.tracks.collectAsState()
@@ -39,8 +41,10 @@ fun StatsScreen(vm: PlayerViewModel) {
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
-            Text("Your Stats", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp,
-                modifier = Modifier.padding(16.dp, 10.dp))
+            Row(Modifier.fillMaxWidth().padding(8.dp, 10.dp, 16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = C.text) }
+                Text("Your Stats", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp)
+            }
             Box(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(Radius.lg))
                     .background(C.accentSoft).padding(20.dp),

@@ -30,11 +30,13 @@ import com.beatdrop.kt.ui.theme.Radius
 @Composable
 fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
     val C = LocalAppColors.current
+    var sheetTrack by remember { mutableStateOf<com.beatdrop.kt.data.Track?>(null) }
     val ctx = LocalContext.current
     val group = remember(artistName) { vm.artists().firstOrNull { it.artist == artistName } }
     val tracks = group?.tracks ?: emptyList()
     val current by vm.current.collectAsState()
 
+  Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
             IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
@@ -61,9 +63,9 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
             Text("Songs", color = C.text, fontWeight = FontWeight.Bold, fontSize = 16.sp,
                 modifier = Modifier.padding(start = 20.dp, bottom = 6.dp))
         }
-        itemsIndexed(tracks) { _, t ->
+        itemsIndexed(tracks, key = { _, t -> t.id }) { _, t ->
             Row(
-                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) })
+                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) }, onLongClick = { sheetTrack = t })
                     .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -81,4 +83,8 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
             }
         }
     }
+    sheetTrack?.let { tk ->
+        com.beatdrop.kt.ui.components.TrackActionsSheet(vm, tk, onDismiss = { sheetTrack = null })
+    }
+  }
 }

@@ -31,6 +31,7 @@ import com.beatdrop.kt.ui.theme.Radius
 @Composable
 fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBack: () -> Unit) {
     val C = LocalAppColors.current
+    var sheetTrack by remember { mutableStateOf<com.beatdrop.kt.data.Track?>(null) }
     val ctx = LocalContext.current
     val group = remember(albumName, artistName) {
         vm.albums().firstOrNull { it.album == albumName && it.artist == artistName }
@@ -38,6 +39,7 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
     val tracks = group?.tracks ?: emptyList()
     val current by vm.current.collectAsState()
 
+  Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
             Box {
@@ -67,9 +69,9 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                 }
             }
         }
-        itemsIndexed(tracks) { index, t ->
+        itemsIndexed(tracks, key = { _, t -> t.id }) { index, t ->
             Row(
-                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) })
+                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) }, onLongClick = { sheetTrack = t })
                     .padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -82,4 +84,8 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
             }
         }
     }
+    sheetTrack?.let { tk ->
+        com.beatdrop.kt.ui.components.TrackActionsSheet(vm, tk, onDismiss = { sheetTrack = null })
+    }
+  }
 }

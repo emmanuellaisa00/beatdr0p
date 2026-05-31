@@ -28,7 +28,7 @@ import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
 @Composable
-fun PlaylistsScreen(vm: PlayerViewModel, onOpen: (String) -> Unit) {
+fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (String) -> Unit) {
     val C = LocalAppColors.current
     val playlists by vm.playlists.collectAsState()
     val liked by vm.liked.collectAsState()
@@ -36,7 +36,8 @@ fun PlaylistsScreen(vm: PlayerViewModel, onOpen: (String) -> Unit) {
     var newName by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(8.dp, 10.dp, 16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = C.text) }
             Text("Playlists", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp, modifier = Modifier.weight(1f))
             IconButton(onClick = { showCreate = true }) { Icon(Icons.Filled.Add, "New playlist", tint = C.accent) }
         }
@@ -100,6 +101,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
     val liked by vm.liked.collectAsState()
     val tracksAll by vm.tracks.collectAsState()
     val current by vm.current.collectAsState()
+    var sheetTrack by remember { mutableStateOf<com.beatdrop.kt.data.Track?>(null) }
 
     val isLiked = name == LIKED_NAME
     val title = if (isLiked) "Liked Songs" else name
@@ -107,6 +109,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
         if (isLiked) tracksAll.filter { liked.contains(it.id) } else vm.playlistTracks(name)
     }
 
+  Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -122,9 +125,9 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
         if (tracks.isEmpty()) {
             item { Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) { Text("No songs yet.", color = C.textSecondary) } }
         }
-        itemsIndexed(tracks) { index, t ->
+        itemsIndexed(tracks, key = { _, t -> t.id }) { index, t ->
             Row(
-                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) }).padding(16.dp, 8.dp),
+                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) }, onLongClick = { sheetTrack = t }).padding(16.dp, 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("${index + 1}", color = C.textTertiary, modifier = Modifier.width(28.dp))
@@ -140,4 +143,8 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
             }
         }
     }
+    sheetTrack?.let { tk ->
+        com.beatdrop.kt.ui.components.TrackActionsSheet(vm, tk, onDismiss = { sheetTrack = null })
+    }
+  }
 }

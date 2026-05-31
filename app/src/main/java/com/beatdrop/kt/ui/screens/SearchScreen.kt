@@ -77,7 +77,7 @@ fun SearchScreen(vm: PlayerViewModel) {
             when {
                 loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = C.accent) }
                 results.isNotEmpty() -> LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 160.dp)) {
-                    items(results) { r ->
+                    items(results, key = { it.videoId }) { r ->
                         Row(
                             Modifier.fillMaxWidth().pressableScale(onClick = { vm.playOnline(r) }).padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,

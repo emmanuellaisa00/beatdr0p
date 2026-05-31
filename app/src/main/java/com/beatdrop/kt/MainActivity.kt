@@ -3,19 +3,25 @@ package com.beatdrop.kt
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -28,6 +34,7 @@ import com.beatdrop.kt.ui.components.MiniPlayer
 import com.beatdrop.kt.ui.components.TabSpec
 import com.beatdrop.kt.ui.screens.*
 import com.beatdrop.kt.ui.theme.BeatDropTheme
+import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -37,9 +44,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            BeatDropTheme {
+            val vm: PlayerViewModel = viewModel()
+            val themePref by vm.theme.collectAsState()
+            BeatDropTheme(themePref = themePref) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Root()
+                    Root(vm)
                 }
             }
         }
@@ -56,10 +65,14 @@ private val audioPermission: String
 fun Root(vm: PlayerViewModel = viewModel()) {
     val perm = rememberPermissionState(audioPermission)
 
-    LaunchedEffect(Unit) { vm.connect() }
-    LaunchedEffect(perm.status.isGranted) {
-        if (perm.status.isGranted) vm.loadLibrary()
+    var showSplash by rememberSaveable { mutableStateOf(true) }
+    if (showSplash) {
+        SplashScreen(onDone = { showSplash = false })
+        return
     }
+
+    LaunchedEffect(Unit) { vm.connect() }
+    LaunchedEffect(perm.status.isGranted) { if (perm.status.isGranted) vm.loadLibrary() }
 
     var onboarded by rememberSaveable { mutableStateOf(false) }
     if (!onboarded && !perm.status.isGranted) {
@@ -80,112 +93,147 @@ private val TABS = listOf(
     TabSpec("dj", "DJ Mode", Icons.Filled.GraphicEq),
 )
 
-/** Lightweight overlay stack pushed over the tabs. */
-private sealed interface Overlay {
-    data class Album(val name: String, val artist: String) : Overlay
-    data class Artist(val name: String) : Overlay
-    data class Playlist(val name: String) : Overlay
-    data object Playlists : Overlay
-    data object Stats : Overlay
-    data object Settings : Overlay
-    data object Eq : Overlay
-    data object Search : Overlay
+/**
+ * Every destination is rendered as ONE opaque screen at a time — no transparent
+ * overlay stacking, so nothing ever bleeds through (no "text over text").
+ */
+private sealed interface Dest {
+    data object Tabs : Dest                                   // the 4 main tabs
+    data class Album(val name: String, val artist: String) : Dest
+    data class Artist(val name: String) : Dest
+    data class Playlist(val name: String) : Dest
+    data object Playlists : Dest
+    data object Stats : Dest
+    data object Settings : Dest
+    data object Eq : Dest
+    data object Search : Dest
+    data object NowPlaying : Dest
+    data object Queue : Dest
 }
 
 @Composable
 fun MainScaffold(vm: PlayerViewModel) {
-    var tab by remember { mutableStateOf("library") }
-    var showNowPlaying by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
-    var overlay by remember { mutableStateOf<Overlay?>(null) }
+    val C = LocalAppColors.current
+    var tab by rememberSaveable { mutableStateOf("library") }
+    // Simple back-stack of destinations on top of Tabs.
+    val stack = remember { mutableStateListOf<Dest>() }
+    val currentDest: Dest = stack.lastOrNull() ?: Dest.Tabs
+
+    fun push(d: Dest) { stack.add(d) }
+    fun pop() { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) }
+
+    // Hardware/gesture back closes the top screen first.
+    BackHandler(enabled = stack.isNotEmpty()) { pop() }
 
     val current by vm.current.collectAsState()
     val isPlaying by vm.isPlaying.collectAsState()
     val pos by vm.position.collectAsState()
     val dur by vm.duration.collectAsState()
 
-    Box(Modifier.fillMaxSize()) {
+    // Single opaque container — exactly one screen visible.
+    Surface(Modifier.fillMaxSize(), color = C.bg0) {
+        AnimatedContent(
+            targetState = currentDest,
+            transitionSpec = {
+                val isPush = targetState != Dest.Tabs
+                if (isPush) {
+                    (slideInHorizontally(tween(260)) { it } + fadeIn(tween(160))) togetherWith
+                        (fadeOut(tween(160)))
+                } else {
+                    (fadeIn(tween(160))) togetherWith
+                        (slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)))
+                }
+            },
+            label = "screen",
+        ) { dest ->
+            // Each branch fills the whole opaque surface independently.
+            Box(Modifier.fillMaxSize().background(C.bg0)) {
+                when (dest) {
+                    Dest.Tabs -> TabsHost(
+                        vm = vm, tab = tab, onTab = { tab = it },
+                        current = current, isPlaying = isPlaying, pos = pos, dur = dur,
+                        onOpenAlbum = { a, ar -> push(Dest.Album(a, ar)) },
+                        onOpenArtist = { push(Dest.Artist(it)) },
+                        onOpenSettings = { push(Dest.Settings) },
+                        onOpenPlaylists = { push(Dest.Playlists) },
+                        onOpenStats = { push(Dest.Stats) },
+                        onOpenSearch = { push(Dest.Search) },
+                        onExpandPlayer = { push(Dest.NowPlaying) },
+                    )
+                    is Dest.Album -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
+                    is Dest.Artist -> ArtistScreen(vm, dest.name, onBack = { pop() })
+                    is Dest.Playlist -> PlaylistDetailScreen(vm, dest.name, onBack = { pop() })
+                    Dest.Playlists -> PlaylistsScreenHosted(vm, onBack = { pop() }, onOpen = { push(Dest.Playlist(it)) })
+                    Dest.Stats -> StatsHosted(vm, onBack = { pop() })
+                    Dest.Settings -> SettingsScreen(vm, onBack = { pop() }, onOpenEq = { push(Dest.Eq) })
+                    Dest.Eq -> EqScreen(onBack = { pop() })
+                    Dest.Search -> SearchScreen(vm)
+                    Dest.NowPlaying -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
+                    Dest.Queue -> QueueScreen(vm, onClose = { pop() })
+                }
+            }
+        }
+    }
+}
+
+/** The 4 main tabs + pinned mini-player + glass tab bar. */
+@Composable
+private fun TabsHost(
+    vm: PlayerViewModel,
+    tab: String,
+    onTab: (String) -> Unit,
+    current: com.beatdrop.kt.data.Track?,
+    isPlaying: Boolean,
+    pos: Long,
+    dur: Long,
+    onOpenAlbum: (String, String) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenPlaylists: () -> Unit,
+    onOpenStats: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onExpandPlayer: () -> Unit,
+) {
+    val C = LocalAppColors.current
+    Box(Modifier.fillMaxSize().background(C.bg0)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     "library" -> LibraryScreen(
                         vm,
-                        onOpenAlbum = { a, ar -> overlay = Overlay.Album(a, ar) },
-                        onOpenArtist = { ar -> overlay = Overlay.Artist(ar) },
-                        onOpenSettings = { overlay = Overlay.Settings },
-                        onOpenPlaylists = { overlay = Overlay.Playlists },
-                        onOpenStats = { overlay = Overlay.Stats },
+                        onOpenAlbum = onOpenAlbum,
+                        onOpenArtist = onOpenArtist,
+                        onOpenSettings = onOpenSettings,
+                        onOpenPlaylists = onOpenPlaylists,
+                        onOpenStats = onOpenStats,
                     )
-                    "discover" -> DiscoverScreen(vm, onOpenSearch = { overlay = Overlay.Search })
+                    "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch)
                     "radio" -> RadioScreen(vm)
                     "dj" -> DJScreen(vm)
                 }
             }
         }
-
-        // Mini-player + glass tab bar pinned at bottom
         Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
             current?.let { t ->
                 MiniPlayer(
                     track = t, isPlaying = isPlaying,
                     progress = if (dur > 0) pos.toFloat() / dur else 0f,
-                    onToggle = { vm.togglePlay() }, onNext = { vm.next() },
-                    onExpand = { showNowPlaying = true },
+                    onToggle = { vm.togglePlay() }, onNext = { vm.next() }, onPrev = { vm.prev() },
+                    onExpand = onExpandPlayer,
                 )
             }
-            GlassTabBar(TABS, tab) { tab = it }
-        }
-
-        // ── Overlays ───────────────────────────────────────────────────────────
-        when (val o = overlay) {
-            is Overlay.Album -> AlbumScreen(vm, o.name, o.artist, onBack = { overlay = null })
-            is Overlay.Artist -> ArtistScreen(vm, o.name, onBack = { overlay = null })
-            is Overlay.Playlist -> PlaylistDetailScreen(vm, o.name, onBack = { overlay = null })
-            Overlay.Playlists -> PlaylistsHost(vm, onBack = { overlay = null }, onOpen = { overlay = Overlay.Playlist(it) })
-            Overlay.Stats -> StatsHost(vm, onBack = { overlay = null })
-            Overlay.Settings -> SettingsScreen(vm, onBack = { overlay = null }, onOpenEq = { overlay = Overlay.Eq })
-            Overlay.Eq -> EqScreen(onBack = { overlay = Overlay.Settings })
-            Overlay.Search -> SearchHost(vm, onBack = { overlay = null })
-            null -> {}
-        }
-
-        if (showNowPlaying && current != null) {
-            NowPlayingScreen(vm, onCollapse = { showNowPlaying = false }, onOpenQueue = { showQueue = true })
-        }
-
-        if (showQueue) {
-            QueueScreen(vm, onClose = { showQueue = false })
+            GlassTabBar(TABS, tab) { onTab(it) }
         }
     }
 }
 
-
+/** Playlists list shown as its own full screen with a back arrow. */
 @Composable
-private fun PlaylistsHost(vm: PlayerViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-        com.beatdrop.kt.ui.screens.PlaylistsScreen(vm, onOpen = onOpen)
-        IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
-            Icon(Icons.Filled.ArrowBack, "Back")
-        }
-    }
+private fun PlaylistsScreenHosted(vm: PlayerViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
+    PlaylistsScreen(vm, onBack = onBack, onOpen = onOpen)
 }
 
 @Composable
-private fun StatsHost(vm: PlayerViewModel, onBack: () -> Unit) {
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-        com.beatdrop.kt.ui.screens.StatsScreen(vm)
-        IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
-            Icon(Icons.Filled.ArrowBack, "Back")
-        }
-    }
-}
-
-@Composable
-private fun SearchHost(vm: PlayerViewModel, onBack: () -> Unit) {
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-        com.beatdrop.kt.ui.screens.SearchScreen(vm)
-        IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
-            Icon(Icons.Filled.ArrowBack, "Back")
-        }
-    }
+private fun StatsHosted(vm: PlayerViewModel, onBack: () -> Unit) {
+    StatsScreen(vm, onBack = onBack)
 }

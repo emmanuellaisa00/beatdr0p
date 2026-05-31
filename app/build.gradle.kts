@@ -103,6 +103,7 @@ dependencies {
 
     // Coil for artwork  (replaces Image uri loading)
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.palette:palette-ktx:1.0.0")
 
     // DataStore (replaces mmkv / async-storage for settings)
     implementation("androidx.datastore:datastore-preferences:1.1.1")

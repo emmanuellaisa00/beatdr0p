@@ -14,6 +14,7 @@ import androidx.media3.session.SessionToken
 import androidx.media3.exoplayer.ExoPlayer
 import com.beatdrop.kt.data.*
 import com.beatdrop.kt.lyrics.LrcParser
+import com.beatdrop.kt.lyrics.LrcLibProvider
 import com.beatdrop.kt.lyrics.LyricLine
 import com.beatdrop.kt.playback.PlaybackService
 import com.beatdrop.kt.youtube.OnlineResult
@@ -25,6 +26,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -67,6 +72,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _lyrics = MutableStateFlow<List<LyricLine>>(emptyList())
     val lyrics: StateFlow<List<LyricLine>> = _lyrics.asStateFlow()
+    private val _lyricsLoading = MutableStateFlow(false)
+    val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
     private val _activeLyric = MutableStateFlow(-1)
     val activeLyric: StateFlow<Int> = _activeLyric.asStateFlow()
 
@@ -170,6 +177,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (index in 0 until c.mediaItemCount) { c.seekTo(index, 0L); c.play() }
     }
 
+    fun moveQueueItem(from: Int, to: Int) {
+        val c = controller ?: return
+        if (from == to) return
+        if (from in 0 until c.mediaItemCount && to in 0 until c.mediaItemCount) {
+            c.moveMediaItem(from, to)
+            refreshQueueFromController()
+        }
+    }
+
     fun removeFromQueue(index: Int) {
         val c = controller ?: return
         if (index in 0 until c.mediaItemCount) { c.removeMediaItem(index); refreshQueueFromController() }
@@ -188,16 +204,29 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var controller: MediaController? = null
 
     // Derived helpers ----------------------------------------------------------
-    fun filteredSorted(): List<Track> {
-        val q = _query.value.trim()
-        val base = if (q.isBlank()) _tracks.value else _tracks.value.filter {
-            it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true)
-        }
-        return repo.sort(base, _sort.value)
-    }
+    // Memoized derived lists — computed once when inputs change (off the UI path),
+    // then just collected. Avoids re-filtering/sorting/grouping on every recompose.
+    val filteredTracks: StateFlow<List<Track>> =
+        combine(_tracks, _query, _sort) { tracks, query, sort ->
+            val q = query.trim()
+            val base = if (q.isBlank()) tracks else tracks.filter {
+                it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true)
+            }
+            repo.sort(base, sort)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun albums(): List<AlbumGroup> = repo.groupAlbums(_tracks.value)
-    fun artists(): List<ArtistGroup> = repo.groupArtists(_tracks.value)
+    val albumGroups: StateFlow<List<AlbumGroup>> =
+        _tracks.map { repo.groupAlbums(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val artistGroups: StateFlow<List<ArtistGroup>> =
+        _tracks.map { repo.groupArtists(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Back-compat helpers (used by Album/Artist/Discover screens)
+    fun filteredSorted(): List<Track> = filteredTracks.value
+    fun albums(): List<AlbumGroup> = albumGroups.value.ifEmpty { repo.groupAlbums(_tracks.value) }
+    fun artists(): List<ArtistGroup> = artistGroups.value.ifEmpty { repo.groupArtists(_tracks.value) }
 
     // Lifecycle ----------------------------------------------------------------
     fun connect() {
@@ -260,6 +289,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         refreshQueueFromController()
     }
 
+    /** Insert a track right after the current one. */
+    fun playNext(track: Track) {
+        val c = controller ?: return
+        val at = (c.currentMediaItemIndex + 1).coerceIn(0, c.mediaItemCount)
+        c.addMediaItem(at, track.toMediaItem())
+        if (c.mediaItemCount == 1) { c.prepare(); c.play() }
+        refreshQueueFromController()
+    }
+
+    /** Append a track to the end of the queue. */
+    fun addToQueueEnd(track: Track) {
+        val c = controller ?: return
+        c.addMediaItem(track.toMediaItem())
+        if (c.mediaItemCount == 1) { c.prepare(); c.play() }
+        refreshQueueFromController()
+    }
+
     fun togglePlay() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun next() { controller?.seekToNextMediaItem() }
     fun prev() { controller?.seekToPreviousMediaItem() }
@@ -267,22 +313,38 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadLyrics(track: Track) {
         viewModelScope.launch {
-            val parsed = withContext(Dispatchers.IO) { LrcParser.findAndParse(track) }
-            _lyrics.value = parsed
             _activeLyric.value = -1
+            _lyrics.value = emptyList()
+            _lyricsLoading.value = true
+            // 1) Local sidecar .lrc (instant, offline)
+            val local = withContext(Dispatchers.IO) { LrcParser.findAndParse(track) }
+            if (local.isNotEmpty()) {
+                _lyrics.value = local
+                _lyricsLoading.value = false
+                return@launch
+            }
+            // 2) Online: LRCLIB (free, synced). Skip if we switched track meanwhile.
+            val online = withContext(Dispatchers.IO) { LrcLibProvider.fetch(track) }
+            if (_current.value?.id == track.id) {
+                _lyrics.value = online
+                _lyricsLoading.value = false
+            }
         }
     }
 
     private fun startTicker() {
         viewModelScope.launch {
             while (true) {
-                controller?.let {
-                    _position.value = it.currentPosition.coerceAtLeast(0L)
-                    if (it.duration > 0) _duration.value = it.duration
+                val c = controller
+                if (c != null && c.isPlaying) {
+                    _position.value = c.currentPosition.coerceAtLeast(0L)
+                    if (c.duration > 0) _duration.value = c.duration
                     if (_lyrics.value.isNotEmpty())
                         _activeLyric.value = LrcParser.activeIndex(_lyrics.value, _position.value)
+                    delay(120)            // smooth seek bar while playing
+                } else {
+                    delay(400)            // idle: save battery when paused
                 }
-                delay(300)
             }
         }
     }
@@ -422,7 +484,32 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    override fun onCleared() { controller?.release(); deckB?.release(); super.onCleared() }
+    // ── Sleep timer ───────────────────────────────────────────────────────────
+    private val _sleepMinutesLeft = MutableStateFlow(0)
+    val sleepMinutesLeft: StateFlow<Int> = _sleepMinutesLeft.asStateFlow()
+    private var sleepJob: kotlinx.coroutines.Job? = null
+
+    fun startSleepTimer(minutes: Int) {
+        sleepJob?.cancel()
+        if (minutes <= 0) { _sleepMinutesLeft.value = 0; return }
+        _sleepMinutesLeft.value = minutes
+        sleepJob = viewModelScope.launch {
+            var left = minutes
+            while (left > 0) {
+                delay(60_000)
+                left--
+                _sleepMinutesLeft.value = left
+            }
+            controller?.pause()
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepJob?.cancel()
+        _sleepMinutesLeft.value = 0
+    }
+
+    override fun onCleared() { sleepJob?.cancel(); controller?.release(); deckB?.release(); super.onCleared() }
 }
 
 private fun Track.toMediaItem(): MediaItem =

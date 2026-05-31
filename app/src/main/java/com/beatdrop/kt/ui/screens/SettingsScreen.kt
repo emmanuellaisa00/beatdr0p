@@ -15,17 +15,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalUriHandler
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}) {
     val C = LocalAppColors.current
     val theme by vm.theme.collectAsState()
     val haptics by vm.haptics.collectAsState()
     val defaultShuffle by vm.defaultShuffle.collectAsState()
+    val sleepLeft by vm.sleepMinutesLeft.collectAsState()
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
 
@@ -67,6 +70,21 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 }
             }
         }
+        item {
+            Card(C) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Sleep timer", color = C.text, modifier = Modifier.weight(1f))
+                    Text(if (sleepLeft > 0) "$sleepLeft min left" else "Off", color = C.textSecondary)
+                }
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(15, 30, 45, 60).forEach { m ->
+                        Chip("$m min", false) { vm.startSleepTimer(m) }
+                    }
+                    Chip("Off", sleepLeft == 0) { vm.cancelSleepTimer() }
+                }
+            }
+        }
         item { SectionHeader("LIBRARY") }
         item {
             Card(C) {
@@ -81,12 +99,37 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
         item { SectionHeader("ABOUT") }
         item {
+            val uriHandler = LocalUriHandler.current
             Card(C) {
                 InfoRow("App", "BeatDrop (Kotlin)")
                 Divider(color = C.separator)
                 InfoRow("Engine", "Media3 / ExoPlayer")
+                Divider(color = C.separator)
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Created by", color = C.text, modifier = Modifier.weight(1f))
+                    Text(
+                        "laisadevstudio",
+                        color = C.accent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.pressableScale(
+                            onClick = { uriHandler.openUri("https://laisadevstudio.vercel.app") },
+                            scaleTo = 0.94f,
+                            haptic = true,
+                        ),
+                    )
+                }
+                Text(
+                    "Tap the name to visit the developer",
+                    color = C.textTertiary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
+        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
