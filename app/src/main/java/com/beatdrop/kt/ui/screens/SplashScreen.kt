@@ -46,7 +46,7 @@ fun SplashScreen(onDone: () -> Unit) {
 
     LaunchedEffect(Unit) {
         visible = true
-        delay(1800)
+        delay(1400)
         onDone()
     }
 

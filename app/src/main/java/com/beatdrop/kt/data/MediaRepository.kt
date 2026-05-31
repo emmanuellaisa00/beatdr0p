@@ -57,6 +57,60 @@ class MediaRepository(private val context: Context) {
         return out
     }
 
+    /**
+     * Streaming load: invokes [onBatch] with the growing track list every
+     * [batchSize] rows, so the UI can render the first songs instantly while the
+     * rest of the (potentially large) library keeps loading.
+     */
+    fun loadTracksStreaming(batchSize: Int = 60, onBatch: (List<Track>) -> Unit) {
+        val out = ArrayList<Track>()
+        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.DATE_ADDED,
+        )
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
+            "${MediaStore.Audio.Media.DURATION} >= 20000"
+        val sort = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
+
+        context.contentResolver.query(collection, projection, selection, null, sort)?.use { c ->
+            val idC = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val tC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val arC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val alC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val alIdC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val dC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val dataC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val daC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            var sinceEmit = 0
+            while (c.moveToNext()) {
+                val id = c.getLong(idC)
+                out.add(
+                    Track(
+                        id = id.toString(),
+                        uri = ContentUris.withAppendedId(collection, id),
+                        title = c.getString(tC) ?: "Unknown",
+                        artist = c.getString(arC) ?: "Unknown artist",
+                        album = c.getString(alC) ?: "",
+                        albumId = c.getLong(alIdC),
+                        durationMs = c.getLong(dC),
+                        data = c.getString(dataC),
+                        dateAdded = c.getLong(daC),
+                    )
+                )
+                sinceEmit++
+                if (sinceEmit >= batchSize) { onBatch(ArrayList(out)); sinceEmit = 0 }
+            }
+        }
+        onBatch(out) // final
+    }
+
     fun groupAlbums(tracks: List<Track>): List<AlbumGroup> =
         tracks.groupBy { it.album to it.artist }
             .map { (k, v) -> AlbumGroup(k.first, k.second, v.first().artworkUri, v) }

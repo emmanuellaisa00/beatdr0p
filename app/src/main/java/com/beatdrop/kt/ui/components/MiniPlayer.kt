@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -83,7 +84,7 @@ fun MiniPlayer(
             }
             .pointerInput(Unit) {
                 // tap to expand (separate so it doesn't fight the drag detector)
-                androidx.compose.foundation.gestures.detectTapGestures(onTap = { onExpand() })
+                detectTapGestures(onTap = { onExpand() })
             },
     ) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {

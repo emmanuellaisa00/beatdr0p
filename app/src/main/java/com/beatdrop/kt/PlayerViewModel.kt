@@ -259,11 +259,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         loadLyrics(t)
     }
 
+    @Volatile private var libraryLoadStarted = false
     fun loadLibrary() {
-        viewModelScope.launch {
-            val list = withContext(Dispatchers.IO) { repo.loadTracks() }
-            _tracks.value = list
-            _loaded.value = true
+        if (libraryLoadStarted) return       // avoid re-scanning on recompositions
+        libraryLoadStarted = true
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.loadTracksStreaming(batchSize = 60) { batch ->
+                // Push each batch to the UI on the main thread; first batch shows instantly.
+                _tracks.value = batch
+                if (!_loaded.value) _loaded.value = true
+            }
         }
     }
 

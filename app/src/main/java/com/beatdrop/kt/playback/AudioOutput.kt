@@ -18,7 +18,7 @@ object AudioOutput {
     fun openSwitcher(context: Context) {
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val intent = Intent(Settings.Panel.ACTION_MEDIA_OUTPUT)
+                val intent = Intent("android.settings.panel.action.MEDIA_OUTPUT")
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
                 return
