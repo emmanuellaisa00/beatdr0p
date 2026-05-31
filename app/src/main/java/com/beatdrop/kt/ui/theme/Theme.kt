@@ -58,7 +58,7 @@ object Spacing { val xs = 4.dp; val sm = 8.dp; val md = 12.dp; val lg = 16.dp; v
 val LocalAppColors = staticCompositionLocalOf { DarkColors }
 
 @Composable
-fun BeatDropTheme(themePref: String = "system", content: @Composable () -> Unit) {
+fun BeatDropTheme(themePref: String = "light", content: @Composable () -> Unit) {
     val dark = when (themePref) {
         "dark" -> true
         "light" -> false
