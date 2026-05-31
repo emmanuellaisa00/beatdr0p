@@ -172,31 +172,32 @@ fun MainScaffold(vm: PlayerViewModel) {
             ) { dest ->
                 Box(Modifier.fillMaxSize().background(Color.Transparent)) {
                     when (dest) {
-                    Dest.Tabs -> TabsHost(
-                        vm = vm, tab = tab, onTab = { tab = it },
-                        current = current, isPlaying = isPlaying, pos = pos, dur = dur,
-                        onOpenAlbum         = { a, ar -> push(Dest.Album(a, ar)) },
-                        onOpenArtist        = { push(Dest.Artist(it)) },
-                        onOpenLocalDiscover = { push(Dest.LocalDiscover) },
-                        onOpenPlaylists     = { push(Dest.Playlists) },
-                        onOpenStats         = { push(Dest.Stats) },
-                        onOpenSearch        = { push(Dest.Search) },
-                        onExpandPlayer      = { push(Dest.NowPlaying) },
-                        onOpenEq            = { push(Dest.Eq) },
-                        onOpenManualDJ      = { push(Dest.ManualDJ) },
-                    )
-                    is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
-                    is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
-                    is Dest.Playlist     -> PlaylistDetailScreen(vm, dest.name, onBack = { pop() })
-                    Dest.Playlists       -> PlaylistsScreenHosted(vm, onBack = { pop() }, onOpen = { push(Dest.Playlist(it)) })
-                    Dest.Stats           -> StatsHosted(vm, onBack = { pop() })
-                    Dest.Settings        -> SettingsScreen(vm, onBack = { pop() }, onOpenEq = { push(Dest.Eq) })
-                    Dest.LocalDiscover   -> LocalDiscoverScreen(vm, onBack = { pop() }, onOpenSearch = { push(Dest.Search) })
-                    Dest.ManualDJ        -> DJScreen(vm, onBack = { pop() })
-                    Dest.Eq              -> EqScreen(onBack = { pop() })
-                    Dest.Search          -> SearchScreen(vm)
-                    Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
-                    Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
+                        Dest.Tabs -> TabsHost(
+                            vm = vm, tab = tab, onTab = { tab = it },
+                            current = current, isPlaying = isPlaying, pos = pos, dur = dur,
+                            onOpenAlbum         = { a, ar -> push(Dest.Album(a, ar)) },
+                            onOpenArtist        = { push(Dest.Artist(it)) },
+                            onOpenLocalDiscover = { push(Dest.LocalDiscover) },
+                            onOpenPlaylists     = { push(Dest.Playlists) },
+                            onOpenStats         = { push(Dest.Stats) },
+                            onOpenSearch        = { push(Dest.Search) },
+                            onExpandPlayer      = { push(Dest.NowPlaying) },
+                            onOpenEq            = { push(Dest.Eq) },
+                            onOpenManualDJ      = { push(Dest.ManualDJ) },
+                        )
+                        is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
+                        is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
+                        is Dest.Playlist     -> PlaylistDetailScreen(vm, dest.name, onBack = { pop() })
+                        Dest.Playlists       -> PlaylistsScreenHosted(vm, onBack = { pop() }, onOpen = { push(Dest.Playlist(it)) })
+                        Dest.Stats           -> StatsHosted(vm, onBack = { pop() })
+                        Dest.Settings        -> SettingsScreen(vm, onBack = { pop() }, onOpenEq = { push(Dest.Eq) })
+                        Dest.LocalDiscover   -> LocalDiscoverScreen(vm, onBack = { pop() }, onOpenSearch = { push(Dest.Search) })
+                        Dest.ManualDJ        -> DJScreen(vm, onBack = { pop() })
+                        Dest.Eq              -> EqScreen(onBack = { pop() })
+                        Dest.Search          -> SearchScreen(vm)
+                        Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
+                        Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
+                    }
                 }
             }
         }
