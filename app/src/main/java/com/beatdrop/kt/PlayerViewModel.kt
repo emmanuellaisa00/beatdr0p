@@ -477,7 +477,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 val cleanMatch = if (bestMatch.thumbnailUrl.isNullOrBlank()) {
                     bestMatch.copy(thumbnailUrl = coverUrl)
                 } else bestMatch
-                playOnline(cleanMatch)
+                
+                _fetchingVideoId.value = cleanMatch.videoId
+                val track = runCatching { youtubeResultToTrack(cleanMatch) }.getOrElse {
+                    _onlineMessage.value = "Couldn't stream this song: ${it.message}"
+                    _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch
+                }
+                _ytTrackCache[track.id] = track
+                val c = controller ?: run { _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch }
+                c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
+                _current.value = track; _duration.value = track.durationMs
+                loadLyrics(track)
+                _isFetchingStream.value = false
+                _fetchingVideoId.value = null
             } else {
                 _onlineMessage.value = "Could not find a stream for: $title"
                 _isFetchingStream.value = false

@@ -13,7 +13,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -22,12 +24,18 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beatdrop.kt.ui.components.GlassTabBar
 import com.beatdrop.kt.ui.components.MiniPlayer
@@ -50,10 +58,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: PlayerViewModel = viewModel()
             val themePref by vm.theme.collectAsState()
+            val isFetchingStream by vm.isFetchingStream.collectAsState()
             BeatDropTheme(themePref = themePref) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize()) {
                         Root(vm)
+                        if (isFetchingStream) {
+                            GlobalGlassLoader()
+                        }
                     }
                 }
             }
@@ -216,3 +228,44 @@ private fun TabsHost(
 
 @Composable private fun PlaylistsScreenHosted(vm: PlayerViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) = PlaylistsScreen(vm, onBack = onBack, onOpen = onOpen)
 @Composable private fun StatsHosted(vm: PlayerViewModel, onBack: () -> Unit) = StatsScreen(vm, onBack = onBack)
+
+@Composable
+fun GlobalGlassLoader() {
+    val C = LocalAppColors.current
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .pointerInput(Unit) {}, // Consume taps to prevent background clicks during loading
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .size(240.dp, 160.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(if (C.isDark) Color(0xFF151025).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f))
+                .border(0.8.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                androidx.compose.material3.CircularProgressIndicator(color = C.accent, strokeWidth = 3.dp)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Connecting to stream...",
+                    color = C.text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Resolving high-quality audio",
+                    color = C.textSecondary,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
