@@ -4,6 +4,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -78,19 +79,30 @@ fun LibraryScreen(
             HeaderIcon(Icons.Filled.Explore, "Discover", onOpenLocalDiscover)
         }
 
-        // ── Search field ────────────────────────────────────────────────────
-        Box(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 8.dp)
-                .clip(RoundedCornerShape(14.dp)).background(C.bg2)
-                .padding(horizontal = 12.dp, vertical = 2.dp),
+        // ── Search field — liquid glass stadium pill ─────────────────────────
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg, vertical = 8.dp)
+                .clip(RoundedCornerShape(50.dp))
+                .background(
+                    if (C.isDark) androidx.compose.ui.graphics.Color(0x14FFFFFF)
+                    else androidx.compose.ui.graphics.Color(0xB0FFFFFF)
+                )
+                .border(
+                    0.8.dp,
+                    if (C.isDark) androidx.compose.ui.graphics.Color(0x22FFFFFF)
+                    else androidx.compose.ui.graphics.Color(0x28000000),
+                    RoundedCornerShape(50.dp),
+                )
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Search, null, tint = C.textTertiary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Search your library", style = Type.body, color = C.textTertiary)
-                    BasicSearchField(query, vm::setQuery, C.text)
-                }
+            Icon(Icons.Filled.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) Text("Search your library", style = Type.body, color = C.textTertiary)
+                BasicSearchField(query, vm::setQuery, C.text)
             }
         }
 
