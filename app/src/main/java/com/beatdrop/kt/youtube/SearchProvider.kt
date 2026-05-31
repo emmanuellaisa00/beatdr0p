@@ -25,8 +25,8 @@ object NotConfiguredProvider : SearchProvider {
 }
 
 /**
- * Production search backend — calls YouTube Innertube /search directly.
- * No API key, no quota. Mirrors searchYoutube() from YoutubeService.ts.
+ * Production search backend — queries a music catalog via Innertube.
+ * No API key required. Results are cleaned to look like a native catalog.
  */
 class InnertubeSearchProvider : SearchProvider {
     override suspend fun search(query: String): List<OnlineResult> =

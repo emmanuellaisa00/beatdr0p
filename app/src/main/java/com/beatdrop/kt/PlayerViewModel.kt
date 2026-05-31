@@ -371,7 +371,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _isSearching.value = true; _suggestions.value = emptyList()
         viewModelScope.launch {
             val res = runCatching { OnlineSearch.provider.search(q) }.getOrElse {
-                _onlineMessage.value = "Search failed: ${it.message}"; emptyList()
+                _onlineMessage.value = "Couldn't search the catalog: ${it.message}"; emptyList()
             }
             _onlineResults.value = res; _isSearching.value = false
         }
@@ -395,7 +395,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             _isFetchingStream.value = true
             _fetchingVideoId.value = result.videoId
             val track = runCatching { youtubeResultToTrack(result) }.getOrElse {
-                _onlineMessage.value = "Could not load track: ${it.message}"
+                _onlineMessage.value = "Couldn't stream this song: ${it.message}"
                 _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch
             }
             _ytTrackCache[track.id] = track
@@ -435,7 +435,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.COMPLETED, 100, track))
             }.onFailure { err ->
                 updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.FAILED, 0, null, err.message))
-                _onlineMessage.value = "Download failed: ${err.message}"
+                _onlineMessage.value = "Couldn't save to library: ${err.message}"
             }
         }
     }

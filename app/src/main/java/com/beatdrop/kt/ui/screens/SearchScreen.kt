@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,15 +35,14 @@ import com.beatdrop.kt.youtube.OnlineResult
 
 @Composable
 fun SearchScreen(vm: PlayerViewModel) {
-    val C        = LocalAppColors.current
-    val ctx      = LocalContext.current
-    val q        by vm.onlineQuery.collectAsState()
-    val results  by vm.onlineResults.collectAsState()
-    val searching  by vm.isSearching.collectAsState()
+    val C = LocalAppColors.current
+    val q by vm.onlineQuery.collectAsState()
+    val results by vm.onlineResults.collectAsState()
+    val searching by vm.isSearching.collectAsState()
     val fetchingId by vm.fetchingVideoId.collectAsState()
-    val message  by vm.onlineMessage.collectAsState()
+    val message by vm.onlineMessage.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
-    val jobs     by vm.downloadJobs.collectAsState()
+    val jobs by vm.downloadJobs.collectAsState()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(message) {
@@ -57,23 +54,29 @@ fun SearchScreen(vm: PlayerViewModel) {
             Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)
         ) {
             Text(
-                "Search", color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black,
+                "Browse", color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.padding(vertical = 10.dp),
             )
 
             // ── Search field ──────────────────────────────────────────────────
             OutlinedTextField(
                 value = q,
-                onValueChange = { vm.setOnlineQuery(it); if (it.length >= 2) vm.loadSuggestions() else Unit },
-                placeholder = { Text("Search songs, artists…") },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                onValueChange = { vm.setOnlineQuery(it); if (it.length >= 2) vm.loadSuggestions() },
+                placeholder = { Text("Search songs, artists, albums…") },
+                leadingIcon = { Icon(Icons.Filled.Search, null, tint = C.textTertiary) },
                 trailingIcon = {
                     if (q.isNotEmpty()) IconButton(onClick = { vm.setOnlineQuery("") }) {
-                        Icon(Icons.Filled.Close, "Clear")
+                        Icon(Icons.Filled.Close, "Clear", tint = C.textTertiary)
                     }
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = C.accent,
+                    unfocusedBorderColor = C.border,
+                    focusedContainerColor = C.bg2,
+                    unfocusedContainerColor = C.bg2,
+                ),
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { vm.runOnlineSearch() }),
@@ -83,7 +86,7 @@ fun SearchScreen(vm: PlayerViewModel) {
             AnimatedVisibility(visible = suggestions.isNotEmpty() && results.isEmpty()) {
                 LazyColumn(
                     contentPadding = PaddingValues(top = 8.dp),
-                    modifier = Modifier.heightIn(max = 200.dp),
+                    modifier = Modifier.heightIn(max = 220.dp),
                 ) {
                     items(suggestions) { suggestion ->
                         Row(
@@ -92,12 +95,12 @@ fun SearchScreen(vm: PlayerViewModel) {
                                     vm.setOnlineQuery(suggestion)
                                     vm.runOnlineSearch()
                                 })
-                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(Icons.Filled.History, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Text(suggestion, color = C.text, fontSize = 14.sp)
+                            Spacer(Modifier.width(14.dp))
+                            Text(suggestion, color = C.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Divider(color = C.bg3.copy(alpha = 0.5f), thickness = 0.5.dp)
                     }
@@ -108,23 +111,23 @@ fun SearchScreen(vm: PlayerViewModel) {
 
             when {
                 searching -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    CircularProgressIndicator(color = C.accent)
+                    CircularProgressIndicator(color = C.accent, strokeWidth = 3.dp)
                 }
                 results.isNotEmpty() -> {
                     Text(
-                        "${results.size} results",
-                        color = C.textSecondary, fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 4.dp),
+                        "${results.size} songs found",
+                        color = C.textTertiary, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp),
                     )
                     LazyColumn(contentPadding = PaddingValues(bottom = 160.dp)) {
                         items(results, key = { it.videoId }) { r ->
                             val job = jobs[r.videoId]
-                            OnlineTrackRow(
-                                result  = r,
-                                job     = job,
+                            CatalogRow(
+                                result = r,
                                 isFetching = fetchingId == r.videoId,
-                                onPlay  = { vm.playOnline(r) },
-                                onDownload = {
+                                isSaved = job?.status == DownloadStatus.COMPLETED,
+                                onPlay = { vm.playOnline(r) },
+                                onSave = {
                                     when (job?.status) {
                                         DownloadStatus.FAILED -> vm.retryDownload(r)
                                         DownloadStatus.QUEUED,
@@ -141,12 +144,18 @@ fun SearchScreen(vm: PlayerViewModel) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 Icons.Filled.MusicNote, null,
-                                tint = C.textTertiary,
-                                modifier = Modifier.size(56.dp),
+                                tint = C.textTertiary.copy(alpha = 0.6f),
+                                modifier = Modifier.size(64.dp),
                             )
-                            Spacer(Modifier.height(12.dp))
-                            Text("Search YouTube for songs to stream or download",
-                                color = C.textSecondary, fontSize = 14.sp,
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Search millions of songs",
+                                color = C.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Find any song to stream or save to your library",
+                                color = C.textTertiary, fontSize = 13.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             )
                         }
@@ -162,27 +171,27 @@ fun SearchScreen(vm: PlayerViewModel) {
     }
 }
 
-// ─── Single search result row ─────────────────────────────────────────────────
+// ─── Catalog-style result row (Apple Music / Spotify look) ────────────────────
 @Composable
-private fun OnlineTrackRow(
+private fun CatalogRow(
     result: OnlineResult,
-    job: com.beatdrop.kt.youtube.DownloadJob?,
     isFetching: Boolean,
+    isSaved: Boolean,
     onPlay: () -> Unit,
-    onDownload: () -> Unit,
+    onSave: () -> Unit,
 ) {
-    val C   = LocalAppColors.current
+    val C = LocalAppColors.current
     val ctx = LocalContext.current
 
     Row(
         Modifier.fillMaxWidth()
             .pressableScale(onClick = onPlay)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Thumbnail
+        // Artwork with play overlay
         Box(
-            Modifier.size(56.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3),
+            Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)).background(C.bg3),
             Alignment.Center,
         ) {
             if (result.thumbnailUrl != null) {
@@ -191,97 +200,75 @@ private fun OnlineTrackRow(
                     contentDescription = null, contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else Icon(Icons.Filled.MusicNote, null, tint = C.textTertiary)
-
-            // Live badge
-            if (result.isLive) {
+            }
+            // Subtle play overlay
+            if (!isFetching) {
                 Box(
-                    Modifier.align(Alignment.BottomEnd).padding(2.dp)
-                        .background(Color.Red, RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
+                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("LIVE", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        Icons.Filled.PlayArrow, "Play",
+                        tint = Color.White, modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            // Fetching spinner overlay
+            if (isFetching) {
+                Box(
+                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
                 }
             }
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
 
-        // Title + meta
+        // Title + artist (clean, catalog-style)
         Column(Modifier.weight(1f)) {
-            Text(result.title, color = C.text, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${result.author} · ${result.durationText}",
-                color = C.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-
-        // Inline fetch spinner on the exact row being resolved
-        if (isFetching) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(28.dp).padding(end = 4.dp),
-                color = C.accent,
-                strokeWidth = 2.5.dp,
+            Text(
+                result.title,
+                color = C.text,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                result.author,
+                color = C.textSecondary,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
-        // Download button with state
-        DownloadStatusButton(
-            job      = job,
-            onClick  = onDownload,
-            accentColor = C.accent,
+        // Duration
+        Text(
+            result.durationText,
+            color = C.textTertiary,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(horizontal = 8.dp),
         )
-    }
-}
 
-// ─── Download button: idle / queued / progress ring / done / failed ───────────
-@Composable
-private fun DownloadStatusButton(
-    job: com.beatdrop.kt.youtube.DownloadJob?,
-    onClick: () -> Unit,
-    accentColor: Color,
-) {
-    val status   = job?.status ?: DownloadStatus.IDLE
-    val progress = job?.progress ?: 0
-
-    // Pulse animation for QUEUED state
-    val alpha by animateFloatAsState(
-        targetValue = if (status == DownloadStatus.QUEUED) 0.5f else 1f,
-        animationSpec = if (status == DownloadStatus.QUEUED)
-            infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse)
-        else tween(200),
-        label = "pulse",
-    )
-
-    IconButton(onClick = onClick) {
-        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-            when (status) {
-                DownloadStatus.DOWNLOADING -> {
-                    CircularProgressIndicator(
-                        progress = { progress / 100f },
-                        modifier = Modifier.fillMaxSize(),
-                        color = accentColor,
-                        trackColor = accentColor.copy(alpha = 0.2f),
-                        strokeWidth = 2.5.dp,
-                        strokeCap = StrokeCap.Round,
-                    )
-                    Text("$progress", color = accentColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                }
-                DownloadStatus.COMPLETED -> Icon(
-                    Icons.Filled.CheckCircle, "Downloaded",
-                    tint = Color(0xFF34C759), modifier = Modifier.fillMaxSize(),
-                )
-                DownloadStatus.FAILED -> Icon(
-                    Icons.Filled.ErrorOutline, "Retry download",
-                    tint = Color(0xFFFF453A), modifier = Modifier.fillMaxSize(),
-                )
-                DownloadStatus.QUEUED -> Icon(
-                    Icons.Filled.CloudDownload, "Queued",
-                    tint = accentColor.copy(alpha = alpha), modifier = Modifier.fillMaxSize(),
-                )
-                DownloadStatus.IDLE -> Icon(
-                    Icons.Filled.Download, "Download",
-                    tint = accentColor.copy(alpha = 0.6f), modifier = Modifier.fillMaxSize(),
-                )
-            }
+        // Save action (rebranded from "Download")
+        IconButton(
+            onClick = onSave,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                if (isSaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                if (isSaved) "Saved to library" else "Save to library",
+                tint = if (isSaved) C.accent else C.textTertiary,
+                modifier = Modifier.size(22.dp),
+            )
         }
     }
 }

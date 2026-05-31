@@ -458,11 +458,11 @@ private fun extractVideoRenderers(arr: JSONArray, out: MutableList<JSONObject> =
 
 internal fun parseInnertubeRenderer(vr: JSONObject): OnlineResult? {
     val videoId = vr.optString("videoId").ifEmpty { return null }
-    val title = htmlDecode(
+    val rawTitle = htmlDecode(
         vr.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
             ?: vr.optJSONObject("title")?.optString("simpleText") ?: ""
     ).ifEmpty { return null }
-    val author = vr.optJSONObject("ownerText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+    val rawAuthor = vr.optJSONObject("ownerText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
         ?: vr.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
     val lengthText = vr.optJSONObject("lengthText")?.optString("simpleText")
         ?: vr.optJSONObject("lengthText")?.optJSONObject("accessibility")
@@ -474,8 +474,11 @@ internal fun parseInnertubeRenderer(vr: JSONObject): OnlineResult? {
             "https://i.ytimg.com/vi/$videoId/hqdefault.jpg")
     else "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
     val isLive = lengthText.isEmpty()
+
+    // Clean up YouTube-specific cruft so results look like a music catalog
+    val (cleanTitle, cleanArtist) = parseTitle(rawTitle, rawAuthor)
     return OnlineResult(
-        videoId = videoId, title = title, author = author,
+        videoId = videoId, title = cleanTitle, author = cleanArtist,
         thumbnailUrl = thumb, durationText = formatTime(duration),
         durationSecs = duration, isLive = isLive,
     )
@@ -499,7 +502,11 @@ private fun getBestAudioFormat(formats: JSONArray?): JSONObject? {
 }
 
 private fun parseTitle(raw: String, channelTitle: String): Pair<String, String> {
-    var title = raw; var artist = channelTitle.replace(Regex("VEVO|Official|Music|Channel|TV", RegexOption.IGNORE_CASE), "").trim()
+    var title = raw
+    var artist = channelTitle
+        .replace(Regex("VEVO|Official|Music|Channel|TV|Topic", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("\\s*[-–—]\\s*"), "")
+        .trim()
     val dash = Regex("^(.+?)\\s*[-–—]\\s*(.+?)(?:\\s*[\\(\\[].*)?$").find(raw)
     if (dash != null) { artist = dash.groupValues[1].trim(); title = dash.groupValues[2].trim() }
     title = title
