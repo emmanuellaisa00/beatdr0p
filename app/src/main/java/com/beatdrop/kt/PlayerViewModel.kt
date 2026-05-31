@@ -242,6 +242,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val t = _tracks.value.firstOrNull { it.id == id } ?: _ytTrackCache[id] ?: return
         _current.value = t; _duration.value = t.durationMs
         loadLyrics(t)
+
+        // Enrich metadata asynchronously in the background so streaming playback starts instantly!
+        if (t.id.startsWith("yt_")) {
+            viewModelScope.launch {
+                val meta = runCatching { enrichTrackMetadata(t.title, t.artist) }.getOrNull()
+                if (meta != null && _current.value?.id == t.id) {
+                    val enriched = t.copy(
+                        title = meta.title ?: t.title,
+                        artist = meta.artist ?: t.artist,
+                        album = meta.album ?: t.album,
+                        artworkOverride = meta.artwork ?: t.artworkOverride
+                    )
+                    _ytTrackCache[t.id] = enriched
+                    _current.value = enriched
+                }
+            }
+        }
     }
 
     @Volatile private var libraryLoadStarted = false

@@ -404,18 +404,17 @@ suspend fun enrichTrackMetadata(title: String, artist: String): EnrichedMeta =
 suspend fun youtubeResultToTrack(result: OnlineResult): Track {
     val streamUrl = getStreamUrl(result.videoId)
     val (title, artist) = parseTitle(result.title, result.author)
-    val meta = enrichTrackMetadata(title, artist)
     return Track(
         id        = "yt_${result.videoId}",
         uri       = Uri.parse(streamUrl),
-        title     = meta.title   ?: title,
-        artist    = meta.artist  ?: artist,
-        album     = meta.album   ?: result.author,
+        title     = title,
+        artist    = artist,
+        album     = result.author,
         albumId   = 0L,
         durationMs = result.durationSecs * 1000L,
         data      = null,
         dateAdded = System.currentTimeMillis(),
-        artworkOverride = meta.artwork ?: result.thumbnailUrl,
+        artworkOverride = result.thumbnailUrl,
     )
 }
 
