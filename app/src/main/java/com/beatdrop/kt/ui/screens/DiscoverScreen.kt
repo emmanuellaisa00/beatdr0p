@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,9 +72,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
     }
 
     if (loading) {
-        Box(Modifier.fillMaxSize().background(Color.Transparent), Alignment.Center) {
-            CircularProgressIndicator(color = C.accent, strokeWidth = 3.dp)
-        }
+        DiscoverShimmer()
         return
     }
 
@@ -373,6 +373,77 @@ private fun LocalCarousel(title: String, list: List<Track>, vm: PlayerViewModel)
                     Text(t.artist, style = Type.footnote, color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun DiscoverShimmer() {
+    val C = LocalAppColors.current
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val xOffset by infiniteTransition.animateFloat(
+        initialValue = -300f,
+        targetValue = 600f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerX"
+    )
+
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.05f),
+            Color.White.copy(alpha = 0.15f),
+            Color.White.copy(alpha = 0.05f),
+        ),
+        start = Offset(xOffset, 0f),
+        end = Offset(xOffset + 200f, 200f)
+    )
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(16.dp)
+    ) {
+        // Title Shimmer
+        Box(
+            Modifier
+                .size(140.dp, 32.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(shimmerBrush)
+        )
+        Spacer(Modifier.height(24.dp))
+
+        // Hero Card Shimmer
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1.6f)
+                .clip(RoundedCornerShape(Radius.lg))
+                .background(shimmerBrush)
+        )
+        Spacer(Modifier.height(32.dp))
+
+        // Grid Title Shimmer
+        Box(
+            Modifier
+                .size(100.dp, 16.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(shimmerBrush)
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // Grid Shimmer (2 rows of 2 compact items)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
         }
     }
 }

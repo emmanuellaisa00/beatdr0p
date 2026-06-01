@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +47,15 @@ fun SearchScreen(vm: PlayerViewModel) {
     val history by vm.searchHistory.collectAsState()
     val jobs by vm.downloadJobs.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            keyboardController?.hide()
+        }
+    }
 
     LaunchedEffect(message) {
         message?.let { snackbar.showSnackbar(it); vm.clearOnlineMessage() }
@@ -157,7 +168,7 @@ fun SearchScreen(vm: PlayerViewModel) {
                         color = C.textTertiary, fontSize = 12.sp, fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
-                    LazyColumn(contentPadding = PaddingValues(bottom = 160.dp)) {
+                    LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 160.dp)) {
                         items(results, key = { it.videoId }) { r ->
                             val job = jobs[r.videoId]
                             CatalogRow(
