@@ -475,6 +475,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _ytTrackCache = mutableMapOf<String, Track>()
 
     fun playOnline(result: OnlineResult) {
+        prepareAndPlayOnline(result)
+    }
+
+    fun prepareAndPlayOnline(result: OnlineResult) {
+        // Create a temporary track immediately so Now Playing opens instantly
+        val tempTrack = Track(
+            id = "yt_${result.videoId}",
+            uri = Uri.EMPTY,
+            title = result.title,
+            artist = result.author,
+            album = result.author,
+            albumId = 0L,
+            durationMs = result.durationSecs * 1000L,
+            data = null,
+            dateAdded = System.currentTimeMillis(),
+            artworkOverride = result.thumbnailUrl,
+        )
+        _current.value = tempTrack
+
         viewModelScope.launch {
             _isFetchingStream.value = true
             _fetchingVideoId.value = result.videoId

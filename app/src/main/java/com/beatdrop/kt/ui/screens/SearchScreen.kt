@@ -36,7 +36,7 @@ import com.beatdrop.kt.youtube.DownloadStatus
 import com.beatdrop.kt.youtube.OnlineResult
 
 @Composable
-fun SearchScreen(vm: PlayerViewModel) {
+fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
     val C = LocalAppColors.current
     val q by vm.onlineQuery.collectAsState()
     val results by vm.onlineResults.collectAsState()
@@ -175,7 +175,10 @@ fun SearchScreen(vm: PlayerViewModel) {
                                 result = r,
                                 isFetching = fetchingId == r.videoId,
                                 isSaved = job?.status == DownloadStatus.COMPLETED,
-                                onPlay = { vm.playOnline(r) },
+                                onPlay = { 
+                                    vm.prepareAndPlayOnline(r)
+                                    onExpandPlayer()
+                                },
                                 onSave = {
                                     when (job?.status) {
                                         DownloadStatus.FAILED -> vm.retryDownload(r)

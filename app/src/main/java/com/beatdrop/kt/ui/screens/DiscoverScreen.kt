@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
 
 // ─── 100% Online Discover Screen (Fetched Directly from YouTube) ─────────────
 @Composable
-fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
+fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandPlayer: () -> Unit = {}) {
     val C = LocalAppColors.current
     var trending by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
     var popHits by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
@@ -107,7 +107,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         featured?.let { feat ->
             item {
                 OnlineFeaturedHero(feat) {
-                    vm.playOnline(feat)
+                    vm.prepareAndPlayOnline(feat)
+                    onExpandPlayer()
                 }
             }
         }
@@ -117,7 +118,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
             item { OnlineEyebrow("HOT TRENDING") }
             item {
                 OnlineQuickGrid(quickGrid) { track ->
-                    vm.playOnline(track)
+                    vm.prepareAndPlayOnline(track)
+                    onExpandPlayer()
                 }
             }
         }
@@ -126,7 +128,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         if (popHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Trending Pop Hits", popHits) { track ->
-                    vm.playOnline(track)
+                    vm.prepareAndPlayOnline(track)
+                    onExpandPlayer()
                 }
             }
         }
@@ -134,7 +137,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         if (hiphopHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Global Hot Charts", hiphopHits) { track ->
-                    vm.playOnline(track)
+                    vm.prepareAndPlayOnline(track)
+                    onExpandPlayer()
                 }
             }
         }

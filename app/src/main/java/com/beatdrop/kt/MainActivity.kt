@@ -196,7 +196,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                         Dest.LocalDiscover   -> LocalDiscoverScreen(vm, onBack = { pop() }, onOpenSearch = { push(Dest.Search) })
                         Dest.ManualDJ        -> DJScreen(vm, onBack = { pop() })
                         Dest.Eq              -> EqScreen(onBack = { pop() })
-                        Dest.Search          -> SearchScreen(vm)
+                        Dest.Search          -> SearchScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) })
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
                     }
@@ -222,7 +222,7 @@ private fun TabsHost(
                 when (tab) {
                     "library"  -> LibraryScreen(vm, onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist,
                         onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
-                    "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch)
+                    "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch, onExpandPlayer = onExpandPlayer)
                     "radio"    -> RadioScreen(vm)
                     "activity" -> ActivityScreen(vm, onOpenEq = onOpenEq, onOpenManualDJ = onOpenManualDJ)
                 }
