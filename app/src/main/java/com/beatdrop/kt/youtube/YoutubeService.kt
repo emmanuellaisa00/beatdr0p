@@ -323,19 +323,18 @@ suspend fun downloadYoutubeTrack(
     } ?: result.thumbnailUrl
 
     val (parsedTitle, parsedArtist) = parseTitle(result.title, result.author)
-    val meta = runCatching { enrichTrackMetadata(parsedTitle, parsedArtist) }.getOrNull()
 
     Track(
         id        = "dl_${result.videoId}",
         uri       = Uri.fromFile(filePath),
-        title     = meta?.title     ?: parsedTitle,
-        artist    = meta?.artist    ?: parsedArtist,
-        album     = meta?.album     ?: result.author,
+        title     = parsedTitle,
+        artist    = parsedArtist,
+        album     = result.author,
         albumId   = 0L,
         durationMs = result.durationSecs * 1000L,
         data      = filePath.absolutePath,
         dateAdded = System.currentTimeMillis(),
-        artworkOverride = meta?.artwork ?: artworkPath,
+        artworkOverride = artworkPath,
     )
 }
 
@@ -418,43 +417,6 @@ private suspend fun downloadSerial(
         }
     }
 }
-
-// ─── iTunes metadata enrichment ──────────────────────────────────────────────
-data class EnrichedMeta(val artwork: String?, val album: String?, val artist: String?, val title: String? = null)
-private val metaCache = ConcurrentHashMap<String, EnrichedMeta>()
-
-suspend fun enrichTrackMetadata(title: String, artist: String): EnrichedMeta =
-    withContext(Dispatchers.IO) {
-        val key = "${artist.lowercase()}::${title.lowercase()}"
-        metaCache[key]?.let { return@withContext it }
-        try {
-            val q    = Uri.encode("$artist $title")
-            val data = okHttp.newCall(
-                Request.Builder()
-                    .url("https://itunes.apple.com/search?term=$q&media=music&entity=song&limit=5")
-                    .build()
-            ).execute().use { resp ->
-                if (!resp.isSuccessful) null else JSONObject(resp.body!!.string())
-            }
-            val results = data?.optJSONArray("results")
-            if (results != null && results.length() > 0) {
-                val match = (0 until results.length()).map { results.getJSONObject(it) }
-                    .firstOrNull { it.optString("artistName").lowercase().startsWith(artist.lowercase().take(4)) }
-                    ?: results.getJSONObject(0)
-                val art = match.optString("artworkUrl100", "")
-                    .replace("100x100bb", "600x600bb").replace("100x100", "600x600")
-                val meta = EnrichedMeta(
-                    artwork = art.ifEmpty { null },
-                    album   = match.optString("collectionName").ifEmpty { null },
-                    artist  = match.optString("artistName").ifEmpty { null },
-                    title   = match.optString("trackName").ifEmpty { null },
-                )
-                metaCache[key] = meta
-                return@withContext meta
-            }
-        } catch (_: Exception) {}
-        EnrichedMeta(null, null, null, null).also { metaCache[key] = it }
-    }
 
 // ─── Convert search result → Track (for streaming) ───────────────────────────
 suspend fun youtubeResultToTrack(result: OnlineResult): Track {
