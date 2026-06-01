@@ -36,92 +36,33 @@ import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 import com.beatdrop.kt.ui.theme.Spacing
 import com.beatdrop.kt.ui.theme.Type
+import com.beatdrop.kt.youtube.OnlineResult
+import com.beatdrop.kt.youtube.searchYoutube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
-// ─── Data Model for Online Discover ──────────────────────────────────────────
-data class OnlineDiscoverTrack(
-    val title: String,
-    val artist: String,
-    val coverUrl: String
-)
-
-// Curated fallbacks in case of network issues
-private val FALLBACK_TRENDING = listOf(
-    OnlineDiscoverTrack("Hello", "Adele", "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/7e/e6/82/7ee682bd-1b17-6adc-be63-b5af1bdff369/26UMGIM51126.rgb.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Blinding Lights", "The Weeknd", "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c3/84/c4/c384c423-fbca-1d2a-f8f4-27e4e116e01a/20UMGIM04391.rgb.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("As It Was", "Harry Styles", "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c3/8c/fa/c38cfaa3-ec7d-df9d-da3e-3cb8dbbd93cf/886449914757.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Shape of You", "Ed Sheeran", "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/d5/d3/18/d5d318bd-3be5-1f9e-213c-70e9a3bbbc91/190295847372.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Flowers", "Miley Cyrus", "https://is1-ssl.mzstatic.com/image/thumb/Music113/v4/2b/ef/ee/2befee3a-4ef3-48ee-bd51-be456eeef211/886449983999.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Cruel Summer", "Taylor Swift", "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/b4/cb/7a/b4cb7ad7-1b03-7cb3-8a3c-b5af3c8340d0/19UMGIM53916.rgb.jpg/600x600bb.jpg")
-)
-
-private val FALLBACK_POP = listOf(
-    OnlineDiscoverTrack("Cruel Summer", "Taylor Swift", "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/b4/cb/7a/b4cb7ad7-1b03-7cb3-8a3c-b5af3c8340d0/19UMGIM53916.rgb.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Flowers", "Miley Cyrus", "https://is1-ssl.mzstatic.com/image/thumb/Music113/v4/2b/ef/ee/2befee3a-4ef3-48ee-bd51-be456eeef211/886449983999.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Greedy", "Tate McRae", "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/91/9f/95/919f9570-5bfa-2983-cf29-c8c366ff8b8e/886449293159.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Water", "Tyla", "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/ca/84/c0/ca84c0c1-be56-9fc6-cb31-50e5eb2d1f4d/886449272376.jpg/600x600bb.jpg")
-)
-
-private val FALLBACK_HIPHOP = listOf(
-    OnlineDiscoverTrack("Not Like Us", "Kendrick Lamar", "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/65/59/89/655989e2-fa18-f2bf-ec5a-1918341604a4/24UMGIM41846.rgb.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("LOVING YOU", "Eminem", "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/a4/82/cf/a482cf19-e58f-2f8c-ce40-7bc09c6bc76c/24UMGIM61284.rgb.jpg/600x600bb.jpg"),
-    OnlineDiscoverTrack("Snooze", "SZA", "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/b8/aa/c8/b8aac8a6-f761-fa5d-0076-2e87c0bcbc60/886449673999.jpg/600x600bb.jpg")
-)
-
-private val okHttp = OkHttpClient.Builder()
-    .connectTimeout(5, TimeUnit.SECONDS)
-    .readTimeout(5, TimeUnit.SECONDS)
-    .build()
-
-// ─── 100% Online Discover Screen ─────────────────────────────────────────────
+// ─── 100% Online Discover Screen (Fetched Directly from YouTube) ─────────────
 @Composable
 fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
     val C = LocalAppColors.current
-    var trending by remember { mutableStateOf<List<OnlineDiscoverTrack>>(emptyList()) }
-    var popHits by remember { mutableStateOf<List<OnlineDiscoverTrack>>(emptyList()) }
-    var hiphopHits by remember { mutableStateOf<List<OnlineDiscoverTrack>>(emptyList()) }
+    var trending by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
+    var popHits by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
+    var hiphopHits by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             try {
-                // Fetch Global Top Hits from iTunes Top Songs RSS Feed
-                val req = Request.Builder().url("https://itunes.apple.com/us/rss/topsongs/limit=30/json").build()
-                val responseText = okHttp.newCall(req).execute().use { it.body?.string() }
-                if (!responseText.isNullOrBlank()) {
-                    val root = JSONObject(responseText)
-                    val entries = root.getJSONObject("feed").optJSONArray("entry")
-                    if (entries != null && entries.length() > 0) {
-                        val parsed = ArrayList<OnlineDiscoverTrack>()
-                        for (i in 0 until entries.length()) {
-                            val entry = entries.getJSONObject(i)
-                            val title = entry.getJSONObject("im:name").optString("label")
-                            val artist = entry.getJSONObject("im:artist").optString("label")
-                            val images = entry.optJSONArray("im:image")
-                            val rawCover = if (images != null && images.length() > 0) {
-                                images.getJSONObject(images.length() - 1).optString("label")
-                            } else ""
-                            // Standardize to high-res iTunes covers
-                            val cover = rawCover.replace("170x170", "600x600")
-                                .replace("100x100", "600x600")
-                                .replace("55x55", "600x600")
-                            parsed.add(OnlineDiscoverTrack(title, artist, cover))
-                        }
-                        trending = parsed.take(10)
-                        popHits = parsed.drop(10).take(10)
-                        hiphopHits = parsed.drop(20).take(10)
-                    }
-                }
+                // Fetch directly from YouTube using our fast, anti-blocking search engine!
+                val trendingResults = runCatching { searchYoutube("trending music hits", 15) }.getOrNull() ?: emptyList()
+                val popResults = runCatching { searchYoutube("popular pop songs hits", 10) }.getOrNull() ?: emptyList()
+                val hiphopResults = runCatching { searchYoutube("latest rap hiphop hits", 10) }.getOrNull() ?: emptyList()
+
+                trending = trendingResults
+                popHits = popResults
+                hiphopHits = hiphopResults
             } catch (e: Exception) {
-                // Network failed or offline, load beautiful fallbacks
-                trending = FALLBACK_TRENDING
-                popHits = FALLBACK_POP
-                hiphopHits = FALLBACK_HIPHOP
+                // Ignore
             } finally {
                 loading = false
             }
@@ -135,7 +76,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         return
     }
 
-    val featured = trending.firstOrNull() ?: FALLBACK_TRENDING.first()
+    val featured = trending.firstOrNull()
     val quickGrid = trending.drop(1).take(6)
 
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -161,9 +102,11 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         }
 
         // ── Featured Hero card (Direct Stream Playback) ─────────────────────
-        item {
-            OnlineFeaturedHero(featured) {
-                vm.playOnlineByMetadata(featured.title, featured.artist, featured.coverUrl)
+        featured?.let { feat ->
+            item {
+                OnlineFeaturedHero(feat) {
+                    vm.playOnline(feat)
+                }
             }
         }
 
@@ -172,7 +115,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
             item { OnlineEyebrow("HOT TRENDING") }
             item {
                 OnlineQuickGrid(quickGrid) { track ->
-                    vm.playOnlineByMetadata(track.title, track.artist, track.coverUrl)
+                    vm.playOnline(track)
                 }
             }
         }
@@ -181,7 +124,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         if (popHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Trending Pop Hits", popHits) { track ->
-                    vm.playOnlineByMetadata(track.title, track.artist, track.coverUrl)
+                    vm.playOnline(track)
                 }
             }
         }
@@ -189,7 +132,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
         if (hiphopHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Global Hot Charts", hiphopHits) { track ->
-                    vm.playOnlineByMetadata(track.title, track.artist, track.coverUrl)
+                    vm.playOnline(track)
                 }
             }
         }
@@ -203,7 +146,7 @@ private fun OnlineEyebrow(text: String) {
 }
 
 @Composable
-private fun OnlineFeaturedHero(track: OnlineDiscoverTrack, onPlay: () -> Unit) {
+private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
     val C = LocalAppColors.current
     val ctx = LocalContext.current
     Box(
@@ -211,16 +154,18 @@ private fun OnlineFeaturedHero(track: OnlineDiscoverTrack, onPlay: () -> Unit) {
             .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)
             .pressableScale(onClick = onPlay, scaleTo = 0.98f),
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(ctx).data(track.coverUrl).crossfade(true).size(512).build(),
-            contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-        )
+        if (track.thumbnailUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(ctx).data(track.thumbnailUrl).crossfade(true).size(512).build(),
+                contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+            )
+        }
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
         Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
             Text("TRENDING #1", style = Type.overline, color = Color.White.copy(alpha = 0.8f))
             Spacer(Modifier.height(4.dp))
             Text(track.title, style = Type.title2, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(track.artist, style = Type.callout, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(track.author, style = Type.callout, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.align(Alignment.BottomEnd).padding(16.dp).size(48.dp).clip(RoundedCornerShape(24.dp)).background(C.accent), Alignment.Center) {
             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
@@ -229,7 +174,7 @@ private fun OnlineFeaturedHero(track: OnlineDiscoverTrack, onPlay: () -> Unit) {
 }
 
 @Composable
-private fun OnlineQuickGrid(list: List<OnlineDiscoverTrack>, onPlay: (OnlineDiscoverTrack) -> Unit) {
+private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit) {
     val C = LocalAppColors.current
     val ctx = LocalContext.current
     Column(Modifier.padding(horizontal = Spacing.lg)) {
@@ -242,10 +187,12 @@ private fun OnlineQuickGrid(list: List<OnlineDiscoverTrack>, onPlay: (OnlineDisc
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)).background(C.bg3)) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(ctx).data(t.coverUrl).crossfade(true).size(96).build(),
-                                contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-                            )
+                            if (t.thumbnailUrl != null) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(ctx).data(t.thumbnailUrl).crossfade(true).size(96).build(),
+                                    contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                         Text(t.title, style = Type.caption, color = C.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
@@ -258,7 +205,7 @@ private fun OnlineQuickGrid(list: List<OnlineDiscoverTrack>, onPlay: (OnlineDisc
 }
 
 @Composable
-private fun OnlineCarousel(title: String, list: List<OnlineDiscoverTrack>, onPlay: (OnlineDiscoverTrack) -> Unit) {
+private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit) {
     val C = LocalAppColors.current
     val ctx = LocalContext.current
     Column(Modifier.padding(top = 18.dp)) {
@@ -268,17 +215,19 @@ private fun OnlineCarousel(title: String, list: List<OnlineDiscoverTrack>, onPla
             items(list) { t ->
                 Column(Modifier.width(150.dp).pressableScale(onClick = { onPlay(t) }, scaleTo = 0.96f)) {
                     Box(Modifier.size(150.dp).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(ctx).data(t.coverUrl).crossfade(true).size(256).build(),
-                            contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-                        )
+                        if (t.thumbnailUrl != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(ctx).data(t.thumbnailUrl).crossfade(true).size(256).build(),
+                                contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+                            )
+                        }
                         Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp).clip(RoundedCornerShape(18.dp)).background(C.accent.copy(alpha = 0.95f)), Alignment.Center) {
                             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(t.title, style = Type.callout, color = C.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(t.artist, style = Type.footnote, color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.author, style = Type.footnote, color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -389,7 +338,7 @@ private fun LocalQuickGrid(list: List<Track>, onPlay: (Track) -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)).background(C.bg3)) {
-                            AsyncImage(model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
+                            AsyncImage(model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).size(96).build(),
                                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         }
                         Text(t.title, style = Type.caption, color = C.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
